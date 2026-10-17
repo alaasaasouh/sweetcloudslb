@@ -1,0 +1,12 @@
+# Local reference copies (the website uses assets/).
+assests/
+/sweet_clouds_logo.png
+
+# Local browser QA and generated screenshots.
+qa.cjs
+preview-*.png
+
+# Editor and operating-system files.
+.DS_Store
+Thumbs.db
+.vscode/

@@ -1,29 +1,35 @@
 'use strict';
 const PRODUCTS = [
-  { id: 'tray', name: 'Large Tray', price: 2000, topping: 0 },
-  { id: 'tin', name: 'Tiramisu Tin', price: 1300, topping: 200 },
-  { id: 'pot', name: 'Single-Serving Pot', price: 350, topping: 50 },
-  { id: 'mug', name: 'Tiramisu Mug', price: 1400, topping: 0 },
-  { id: 'cake', name: 'Tiramisu Cake', price: 2000, topping: 0 }
+  { id: 'tray', name: 'Large Tray', price: 2000, flavorExtra: 200, split: true },
+  { id: 'tin', name: 'Tiramisu Tin', price: 1300, flavorExtra: 200, split: true },
+  { id: 'pot', name: 'Single-Serving Pot', price: 350, flavorExtra: 50, split: false },
+  { id: 'mug', name: 'Tiramisu Mug', price: 1400, flavorExtra: 0, split: false },
+  { id: 'cake', name: 'Tiramisu Cake', price: 2000, flavorExtra: 200, split: true }
 ];
-const FLAVORS = ['Strawberry', 'Biscoff', 'Pistachio', 'Kinder', 'Lemon', 'Mango', 'Chocolate'];
+const FLAVORS = ['Classic', 'Strawberry', 'Biscoff', 'Pistachio', 'Kinder', 'Lemon', 'Mango', 'Chocolate'];
 const WA = 'https://wa.me/96170195955';
 const STORAGE = 'sweet-clouds-order-v1';
 const $ = selector => document.querySelector(selector);
 const money = cents => '$' + (cents / 100).toFixed(2);
 const productFor = id => PRODUCTS.find(product => product.id === id);
-const unitPrice = item => productFor(item.product).price + (item.topping ? productFor(item.product).topping : 0);
+const selectedFlavors = item => [...new Set([item.flavor, ...(productFor(item.product).split ? [item.secondFlavor] : [])].filter(flavor => FLAVORS.includes(flavor)))];
+const flavorLabel = item => selectedFlavors(item).join(' / ');
+const unitPrice = item => {
+  const product = productFor(item.product), flavors = selectedFlavors(item);
+  const extraPerFlavor = product.split && flavors.length === 2 ? product.flavorExtra / 2 : product.flavorExtra;
+  return product.price + flavors.filter(flavor => flavor !== 'Classic').length * extraPerFlavor;
+};
 const subtotal = items => items.reduce((sum, item) => sum + unitPrice(item) * item.quantity, 0);
 const validQuantity = value => Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 999;
 function sanitizeOrder(value) {
   if (!Array.isArray(value)) return [];
-  return value.filter(item => item && productFor(item.product) && FLAVORS.includes(item.flavor) && validQuantity(item.quantity)).slice(0, 100).map(item => ({ product: item.product, flavor: item.flavor, quantity: Number(item.quantity), topping: Boolean(item.topping && productFor(item.product).topping), note: typeof item.note === 'string' ? item.note.slice(0, 500) : '' }));
+  return value.filter(item => item && productFor(item.product) && FLAVORS.includes(item.flavor) && validQuantity(item.quantity)).slice(0, 100).map(item => ({ product: item.product, flavor: item.flavor, quantity: Number(item.quantity), secondFlavor: productFor(item.product).split && FLAVORS.includes(item.secondFlavor) && item.secondFlavor !== item.flavor ? item.secondFlavor : '', note: typeof item.note === 'string' ? item.note.slice(0, 500) : '' }));
 }
 function buildMessage(items) {
   if (!items.length) return '';
   const lines = items.map((item, index) => {
     const product = productFor(item.product);
-    return `${index + 1}. ${product.name}\nFlavor: ${item.flavor}\nQuantity: ${item.quantity}${product.topping ? '\nTopping: ' + (item.topping ? 'Yes (+' + money(product.topping) + ' each)' : 'No') : ''}\nUnit price: ${money(unitPrice(item))}\nLine total: ${money(unitPrice(item) * item.quantity)}${item.note ? '\nSpecial request: ' + item.note : ''}`;
+    return `${index + 1}. ${product.name}\nFlavor: ${flavorLabel(item)}${item.secondFlavor ? " (half & half)" : ""}\nQuantity: ${item.quantity}\nUnit price: ${money(unitPrice(item))}\nLine total: ${money(unitPrice(item) * item.quantity)}${item.note ? '\nSpecial request: ' + item.note : ''}`;
   });
   return `Hello Sweet Clouds! I’d like to order:\n\n${lines.join('\n\n')}\n\nEstimated product subtotal: ${money(subtotal(items))} USD\nExcludes delivery and unconfirmed customization charges.\n\nCustomer name: \nRequested date: \nPickup/delivery preference: \nExtra notes: \n\nPlease confirm availability and the final total. Thank you!`;
 }
@@ -66,29 +72,38 @@ function configure(id, index = -1) {
   const existing = index >= 0 ? order[index] : null;
   $('#custom-title').textContent = activeProduct.name;
   $('#custom-form').reset();
-  $('#flavor').replaceChildren(new Option('Choose a flavor', ''), ...FLAVORS.map(flavor => new Option(flavor, flavor)));
+  $('#flavor').replaceChildren(new Option('Choose a flavor', ''), ...FLAVORS.map(flavor => new Option(flavor + (flavor !== 'Classic' && activeProduct.flavorExtra ? ` (+${money(activeProduct.flavorExtra)})` : ''), flavor)));
   $('#flavor').value = existing?.flavor || preferredFlavor;
   $('#quantity').value = existing?.quantity || 1;
-  $('#topping-label').hidden = !activeProduct.topping;
-  $('#topping').disabled = !activeProduct.topping;
-  $('#topping').checked = Boolean(existing?.topping);
-  $('#topping-text').textContent = `Add topping (+${money(activeProduct.topping)} each)`;
+  $('#second-flavor-label').hidden = !activeProduct.split;
+  $('#second-flavor').disabled = !activeProduct.split;
+  $('#second-flavor').replaceChildren(new Option('One flavor (no split)', ''), ...FLAVORS.map(flavor => new Option(flavor + (flavor !== 'Classic' ? ' (+' + money(activeProduct.flavorExtra / 2) + ' per half)' : ''), flavor)));
+  $('#second-flavor').value = existing?.secondFlavor || '';
+  $('#flavor-pricing').textContent = activeProduct.split ? 'Classic is included. One non-classic flavor: +$2.00. Half & half: +$1.00 per non-classic half. Classic + another flavor: +$1.00 total; two non-classic flavors: +$2.00 total.' : activeProduct.flavorExtra ? 'Classic is included. A non-classic flavor adds $0.50 per item.' : 'Flavor availability is confirmed on WhatsApp.';
   $('#note').value = existing?.note || '';
   $('#add-label').textContent = existing ? 'Save changes' : 'Add to order';
   updatePrice();
   showDialog(customizer);
 }
 function updatePrice() {
+  if ($('#second-flavor').value === $('#flavor').value) $('#second-flavor').value = '';
+  [...$('#second-flavor').options].forEach(option => option.disabled = Boolean(option.value && option.value === $('#flavor').value));
+  const isSplit = activeProduct.split && Boolean($('#second-flavor').value);
+  [...$('#flavor').options].forEach(option => {
+    if (!option.value) return;
+    option.textContent = option.value + (option.value !== 'Classic' && activeProduct.flavorExtra ? ' (+' + money(isSplit ? activeProduct.flavorExtra / 2 : activeProduct.flavorExtra) + (isSplit ? ' per half)' : ')') : '');
+  });
   const qty = Number($('#quantity').value);
-  $('#custom-price').textContent = validQuantity(qty) ? money((activeProduct.price + ($('#topping').checked ? activeProduct.topping : 0)) * qty) : 'Set quantity';
+  $('#custom-price').textContent = validQuantity(qty) ? money(unitPrice({ product: activeProduct.id, flavor: $('#flavor').value, secondFlavor: $('#second-flavor').value }) * qty) : 'Set quantity';
 }
 $('#quantity').addEventListener('input', updatePrice);
-$('#topping').addEventListener('change', updatePrice);
+$('#flavor').addEventListener('change', updatePrice);
+$('#second-flavor').addEventListener('change', updatePrice);
 document.querySelectorAll('[data-customize]').forEach(button => button.addEventListener('click', () => configure(button.dataset.customize)));
 $('#custom-form').addEventListener('submit', event => {
   event.preventDefault();
   if (!validQuantity($('#quantity').value) || !FLAVORS.includes($('#flavor').value)) return;
-  const item = { product: activeProduct.id, flavor: $('#flavor').value, quantity: Number($('#quantity').value), topping: Boolean(activeProduct.topping && $('#topping').checked), note: $('#note').value.trim().slice(0, 500) };
+  const item = { product: activeProduct.id, flavor: $('#flavor').value, quantity: Number($('#quantity').value), secondFlavor: activeProduct.split && $('#second-flavor').value !== $('#flavor').value ? $('#second-flavor').value : '', note: $('#note').value.trim().slice(0, 500) };
   if (editIndex >= 0) order[editIndex] = item; else order.push(item);
   save(); closeDialog(customizer);
   notify(editIndex >= 0 ? 'Your sweet order is updated.' : `${activeProduct.name} added to your order.`);
@@ -103,15 +118,15 @@ function renderCart() {
   }
   order.forEach((item, index) => {
     const product = productFor(item.product), row = element('article', '', 'cart-item');
-    row.append(element('h3', product.name), element('p', `${item.flavor}${product.topping ? (item.topping ? ' · With topping' : ' · No topping') : ''} · ${money(unitPrice(item))} each`));
+    row.append(element('h3', product.name), element('p', `${flavorLabel(item)}${item.secondFlavor ? " (half & half)" : ""} · ${money(unitPrice(item))} each`));
     if (item.note) row.append(element('p', 'Request: ' + item.note));
     const bottom = element('div', '', 'cart-item-bottom'), quantity = document.createElement('input');
     quantity.type = 'number'; quantity.min = '1'; quantity.max = '999'; quantity.step = '1'; quantity.value = item.quantity;
-    quantity.setAttribute('aria-label', `Quantity for ${product.name}, ${item.flavor}`);
+    quantity.setAttribute('aria-label', `Quantity for ${product.name}, ${flavorLabel(item)}`);
     quantity.addEventListener('change', () => { if (!validQuantity(quantity.value)) { quantity.value = item.quantity; notify('Please choose a whole quantity from 1 to 999.'); return; } item.quantity = Number(quantity.value); save(); const inputs = container.querySelectorAll('input'); inputs[index]?.focus(); });
     bottom.append(quantity, element('strong', money(unitPrice(item) * item.quantity)));
     const controls = element('div', '', 'cart-controls'), edit = element('button', 'Edit'), remove = element('button', 'Remove');
-    edit.setAttribute('aria-label', `Edit ${product.name}, ${item.flavor}`); remove.setAttribute('aria-label', `Remove ${product.name}, ${item.flavor}`);
+    edit.setAttribute('aria-label', `Edit ${product.name}, ${flavorLabel(item)}`); remove.setAttribute('aria-label', `Remove ${product.name}, ${flavorLabel(item)}`);
     edit.addEventListener('click', () => { cart.close(); returnToCart = true; configure(item.product, index); });
     remove.addEventListener('click', () => { order.splice(index, 1); save(); const next = container.querySelectorAll('.cart-controls button')[Math.min(index, order.length - 1) * 2]; (next || cart.querySelector('[data-close]')).focus(); notify('Item removed.'); });
     controls.append(edit, remove); row.append(bottom, controls); container.append(row);

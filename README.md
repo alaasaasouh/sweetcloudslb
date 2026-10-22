@@ -24,11 +24,11 @@ The website uses the supplied images in `assets/`. The reference poster is retai
 ## Verification checklist
 
 - [x] All five products: Large Tray $20 (10–12 servings), Tiramisu Tin $13, Single-Serving Pot $3.50, Tiramisu Mug $14, Tiramisu Cake $20.
-- [x] Toppings only for Tin (+$2 each) and Pot (+$0.50 each).
-- [x] Seven supplied flavor choices and original logo/photos.
+- [x] Classic included; Pot +$0.50 for a non-classic flavor; Tin, Cake, and Tray +$2 for one whole non-classic flavor, or +$1 per non-classic half when split (Classic + non-classic: +$1; two non-classic halves: +$2). Mug pricing unchanged.
+- [x] Classic plus seven supplied flavor choices and original logo/photos.
 - [x] No horizontal page overflow at 320, 375, 390, 768, and 1440 pixels in Chromium.
 - [x] Correct Instagram and WhatsApp destinations in source.
-- [x] Cart math: two tins with topping plus one pot with topping = $34.00; changing tins to three = $49.00.
+- [x] Cart math: two tins with two non-classic flavors plus one non-classic pot = $34.00; changing tins to three = $49.00.
 - [x] Add, edit, remove, refresh persistence, and disabled empty-order sending.
 - [x] URL-encoded WhatsApp summary, confirmation request, and customer detail blanks.
 - [x] Native dialog keyboard handling, Escape dismissal, accessible labels, visible focus rules, mobile menu closing.
